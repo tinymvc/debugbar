@@ -1,0 +1,22 @@
+{
+    "name": "tinymvc/debugbar",
+    "description": "A Debugbar for TinyMVC Framework",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "DebugBar\\": "src/"
+        },
+        "files": [
+            "src/helpers.php"
+        ]
+    },
+    "authors": [
+        {
+            "name": "Shahin Moyshan",
+            "email": "shahin.moyshan2@gmail.com"
+        }
+    ],
+    "config": {
+        "optimize-autoloader": true
+    }
+}
