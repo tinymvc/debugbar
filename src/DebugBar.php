@@ -78,17 +78,35 @@ class DebugBar implements DebugBarContract
      * 
      * It also disables itself automatically when running in CLI mode.
      * 
+     * @param array $options Optional configuration options
+     * 
      * @return void
      */
-    public function __construct()
+    public function __construct(private array $options = [])
     {
         // Store global reference for static access
         self::$instance = $this;
+
+        $this->options = array_merge([
+            'record' => false,
+            'max_records' => 100,
+            'show_debugbar' => true,
+            'show_ajax' => true,
+        ], $options);
 
         if (php_sapi_name() === 'cli') {
             // Disable DebugBar in CLI mode
             $this->isCollectingData = false;
             return;
+        }
+
+        // Handle requests to the DebugBar interface
+        if (
+            $_SERVER['REQUEST_METHOD'] === 'GET' &&
+            strpos($_SERVER['REQUEST_URI'], '/debugbar') !== false
+        ) {
+            $this->handleDebugBarRequest();
+            exit;
         }
 
         $this->appStartTime = defined('APP_STARTED') ? APP_STARTED : microtime(true);
@@ -109,13 +127,73 @@ class DebugBar implements DebugBarContract
     }
 
     /**
+     * Handles requests to the DebugBar interface for viewing snapshots.
+     * Renders either a list of snapshots or a detailed view of a specific snapshot.
+     * 
+     * @return void
+     */
+    private function handleDebugBarRequest()
+    {
+        Blade::setPath(__DIR__ . '/resources/views');
+
+        $path = $_SERVER['REQUEST_URI'];
+        $file = basename($path);
+        if (pathinfo($file, PATHINFO_EXTENSION) === 'json') {
+            $filepath = storage_dir("/temp/debugbar/$file");
+            if (!file_exists($filepath)) {
+                http_response_code(404);
+                echo 'Snapshot not found';
+                exit;
+            }
+
+            $context = json_decode(file_get_contents($filepath), true);
+            foreach ($context['data'] as $key => $value) {
+                Blade::share($key, $value);
+            }
+
+            Blade::share('isFull', true);
+            echo view('debugbar')
+                ->send();
+
+            return; // Exit after rendering the full debugbar view
+        }
+
+        $snapshots = [];
+        foreach (glob(storage_dir('/temp/debugbar/snapshot_*.json')) as $file) {
+            $snapshot = json_decode(file_get_contents($file), true);
+            $snapshots[] = [
+                'file' => basename($file),
+                'time' => $snapshot['time'],
+                'method' => $snapshot['data']['request']['method'] ?? 'GET',
+                'url' => $snapshot['data']['request']['url'] ?? '/',
+                'summary' => [
+                    'execution_time' => $snapshot['data']['performance']['execution_time'] ?? 'N/A',
+                    'memory_used' => $snapshot['data']['performance']['memory_used'] ?? 'N/A',
+                    'database_query_count' => $snapshot['data']['database']['query_count'] ?? 0,
+                ],
+            ];
+        }
+
+        $snapshots = array_reverse($snapshots);
+
+        view('debuglist', compact('snapshots'))
+            ->send(); // Render the list of snapshots
+    }
+
+    /**
      * Static method to register and get the DebugBar instance
+     * 
+     * @param array $options Optional configuration options
+     *              - record: bool Whether to record the entire request snapshots
+     *              - max_records: int Maximum number of request snapshots to keep
+     *              - show_debugbar: bool Whether to enable the bottom debug bar
+     *              - show_ajax: bool Whether to enable AJAX support for the debug bar
      * 
      * @return self The DebugBar instance
      */
-    public static function register(): self
+    public static function register(array $options = []): self
     {
-        return new self();
+        return new self($options);
     }
 
     /**
@@ -193,20 +271,31 @@ class DebugBar implements DebugBarContract
                 // Final memory snapshot before generating debug data
                 $this->takeMemorySnapshot('app_terminated', 'Application Terminated');
 
+                // Record the request recording is enabled
+                if ($this->options['record']) {
+                    $this->recordThisRequest();
+                }
+
                 // Check if output is JSON (API response)
                 $decoded = json_decode($output, true);
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                    $decoded['__debug_bar'] = $this->getJsonSnapshot();
-                    $output = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-                } else {
-                    // Set the path for DebugBar blade templates
-                    foreach ($this->getDebugData() as $key => $value) {
-                        Blade::share($key, $value);
+                    if ($this->options['show_ajax']) {
+                        $decoded['__debug_bar'] = $this->getJsonSnapshot();
+                        $output = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
                     }
-                    Blade::setPath(__DIR__ . '/resources/views');
+                } else {
+                    if ($this->options['show_debugbar']) {
+                        // Set the path for DebugBar blade templates
+                        foreach ($this->getDebugData() as $key => $value) {
+                            Blade::share($key, $value);
+                        }
 
-                    // Render the debug bar with all collected data
-                    $output .= Blade::render('debugbar');
+                        Blade::share('isFull', false);
+                        Blade::setPath(__DIR__ . '/resources/views');
+
+                        // Render the debug bar with all collected data
+                        $output .= Blade::render('debugbar');
+                    }
                 }
 
                 echo $output; // Output the final content
@@ -511,6 +600,30 @@ class DebugBar implements DebugBarContract
             'memory' => $this->getMemoryData(),
             'timers' => $this->getTimersData()
         ];
+    }
+
+    /**
+     * Record the current request's debug data to a JSON file for later analysis.
+     * 
+     * @return void
+     */
+    private function recordThisRequest(): void
+    {
+        $debugData = json_encode(['time' => time(), 'data' => $this->getDebugData()]);
+        $tempDir = storage_dir('/temp/debugbar');
+
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $filename = $tempDir . '/snapshot_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.json';
+        file_put_contents($filename, $debugData);
+
+        // Removed old snapshots, keep only latest only
+        $files = glob("$tempDir/snapshot_*.json");
+        if (count($files) > $this->options['max_records']) {
+            array_map('unlink', array_slice($files, 0, count($files) - $this->options['max_records']));
+        }
     }
 
     /**

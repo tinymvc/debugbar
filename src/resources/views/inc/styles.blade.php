@@ -16,6 +16,12 @@
         --debugbar-shadow-lg: 0 25px 50px -12px rgb(0 0 0 / 0.25);
     }
 
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
     #tinymvc-debugbar * {
         box-sizing: border-box;
     }
@@ -35,6 +41,10 @@
         backdrop-filter: blur(8px);
     }
 
+    #tinymvc-debugbar.is_full {
+        position: relative;
+    }
+
     #tinymvc-debugbar.minimized {
         transform: translateY(calc(100% - 52px));
     }
@@ -48,6 +58,10 @@
         cursor: pointer;
         border-bottom: 1px solid #475569;
         backdrop-filter: blur(8px);
+    }
+
+    #tinymvc-debugbar.is_full .debugbar-header {
+        cursor: default;
     }
 
     .debugbar-title {
@@ -120,6 +134,11 @@
         color: var(--debugbar-text);
         display: flex;
         flex-direction: column;
+    }
+
+    #tinymvc-debugbar.is_full .debugbar-content {
+        height: 100%;
+        max-height: calc(100% - 45px);
     }
 
     .debugbar-tabs {

@@ -38,28 +38,44 @@
 
 @include('inc.styles')
 
-<div id="tinymvc-debugbar" class="minimized">
+@if ($isFull)
+    <title>Snapshot Details - DebugBar</title>
+@endif
+
+<div id="tinymvc-debugbar" @class(['minimized' => !$isFull, 'is_full' => $isFull])>
 
     <div class="debugbar-header" onclick="toggleDebugBar()">
-        <div class="debugbar-title">
-            <div class="debugbar-logo">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                    class="lucide lucide-bug-icon lucide-bug">
-                    <path d="M12 20v-9" />
-                    <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" />
-                    <path d="M14.12 3.88 16 2" />
-                    <path d="M21 21a4 4 0 0 0-3.81-4" />
-                    <path d="M21 5a4 4 0 0 1-3.55 3.97" />
-                    <path d="M22 13h-4" />
-                    <path d="M3 21a4 4 0 0 1 3.81-4" />
-                    <path d="M3 5a4 4 0 0 0 3.55 3.97" />
-                    <path d="M6 13H2" />
-                    <path d="m8 2 1.88 1.88" />
-                    <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" />
-                </svg>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            @if ($isFull)
+                <a href="/debugbar" style="padding: 2px;" class="debugbar-toggle">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" class="lucide lucide-chevron-left-icon lucide-chevron-left">
+                        <path d="m15 18-6-6 6-6" />
+                    </svg>
+                </a>
+            @endif
+            <div class="debugbar-title">
+                <div class="debugbar-logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" class="lucide lucide-bug-icon lucide-bug">
+                        <path d="M12 20v-9" />
+                        <path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z" />
+                        <path d="M14.12 3.88 16 2" />
+                        <path d="M21 21a4 4 0 0 0-3.81-4" />
+                        <path d="M21 5a4 4 0 0 1-3.55 3.97" />
+                        <path d="M22 13h-4" />
+                        <path d="M3 21a4 4 0 0 1 3.81-4" />
+                        <path d="M3 5a4 4 0 0 0 3.55 3.97" />
+                        <path d="M6 13H2" />
+                        <path d="m8 2 1.88 1.88" />
+                        <path d="M9 7.13V6a3 3 0 1 1 6 0v1.13" />
+                    </svg>
+                </div>
+                <span>Debug<span
+                        style="margin-left: 2px;font-weight: 400; opacity: 0.85;color: var(--debugbar-light);">Bar</span></span>
             </div>
-            <span>Debug Bar</span>
         </div>
 
         <div class="debugbar-summary">
@@ -86,9 +102,11 @@
             </div>
         </div>
 
-        <button class="debugbar-toggle" onclick="event.stopPropagation(); toggleDebugBar()">
-            <span id="debugbar-toggle-icon">▼</span>
-        </button>
+        @if (!$isFull)
+            <button class="debugbar-toggle" onclick="event.stopPropagation(); toggleDebugBar()">
+                <span id="debugbar-toggle-icon">▲</span>
+            </button>
+        @endif
     </div>
 
     <div class="debugbar-content">

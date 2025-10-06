@@ -5,6 +5,10 @@
         const debugBar = document.getElementById('tinymvc-debugbar');
         const toggleIcon = document.getElementById('debugbar-toggle-icon');
 
+        if (debugBar.classList.contains('is_full')) {
+            return;
+        }
+
         debugBarMinimized = !debugBarMinimized;
 
         if (debugBarMinimized) {
