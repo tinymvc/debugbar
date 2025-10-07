@@ -5,15 +5,21 @@ use DebugBar\DebugBar;
 if (!function_exists('debugbar')) {
     /**
      * Get the global debug bar instance
+     *
+     * @param array $options Optional configuration options
+     *              - record: bool Whether to record the entire request snapshots
+     *              - max_records: int Maximum number of request snapshots to keep
+     *              - show_debugbar: bool Whether to enable the bottom debug bar
+     *              - show_ajax: bool Whether to enable AJAX support for the debug bar
      * 
      * @return \DebugBar\DebugBar
      */
-    function debugbar(): DebugBar
+    function debugbar(array $options = []): DebugBar
     {
         static $instance = null;
 
         if ($instance === null) {
-            $instance = DebugBar::register();
+            $instance = DebugBar::register($options);
         }
 
         return $instance;
