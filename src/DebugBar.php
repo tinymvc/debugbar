@@ -3,6 +3,7 @@
 namespace DebugBar;
 
 use DebugBar\Contracts\DebugBarContract;
+use Spark\Contracts\Support\Jsonable;
 use Spark\Facades\Blade;
 
 /**
@@ -286,7 +287,7 @@ class DebugBar implements DebugBarContract
                 } else {
                     if ($this->options['show_debugbar']) {
                         // Set the path for DebugBar blade templates
-                        foreach ($this->getDebugData() as $key => $value) {
+                        foreach ($this->serializedDebugData($this->getDebugData()) as $key => $value) {
                             Blade::share($key, $value);
                         }
 
@@ -609,7 +610,7 @@ class DebugBar implements DebugBarContract
      */
     private function recordThisRequest(): void
     {
-        $debugData = json_encode(['time' => time(), 'data' => $this->getDebugData()]);
+        $debugData = json_encode(['time' => time(), 'data' => $this->serializedDebugData($this->getDebugData())]);
         $tempDir = storage_dir('/temp/debugbar');
 
         if (!is_dir($tempDir)) {
@@ -624,6 +625,39 @@ class DebugBar implements DebugBarContract
         if (count($files) > $this->options['max_records']) {
             array_map('unlink', array_slice($files, 0, count($files) - $this->options['max_records']));
         }
+    }
+
+    /**
+     * Recursively serialize debug data to ensure all objects are converted to arrays or strings.
+     * 
+     * @param mixed $data The data to serialize
+     * @return mixed The serialized data
+     */
+    private function serializedDebugData($data)
+    {
+        // If it's an object that knows how to cast itself to array, do it and recurse
+        if ($data instanceof Arrayable) {
+            $data = $data->toArray();
+        } elseif ($data instanceof \Stringable) {
+            return (string) $data;
+        } elseif ($data instanceof Jsonable) {
+            return $data->toJson();
+        } elseif (is_object($data)) {
+            // For generic objects, convert to array of public properties
+            $data = get_object_vars($data);
+        }
+
+        // If it's an array, recurse into each element
+        if (is_array($data)) {
+            return array_map(
+                /** @param mixed $item */
+                fn($item): mixed => $this->serializedDebugData($item),
+                $data
+            );
+        }
+
+        // Otherwise return as-is (string/int/etc)
+        return $data;
     }
 
     /**
