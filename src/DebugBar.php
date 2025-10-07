@@ -104,7 +104,7 @@ class DebugBar implements DebugBarContract
         // Handle requests to the DebugBar interface
         if (
             $_SERVER['REQUEST_METHOD'] === 'GET' &&
-            strpos($_SERVER['REQUEST_URI'], '/debugbar') !== false
+            str_starts_with($_SERVER['REQUEST_URI'], '/debugbar')
         ) {
             $this->handleDebugBarRequest();
             exit;
@@ -136,6 +136,12 @@ class DebugBar implements DebugBarContract
     private function handleDebugBarRequest()
     {
         Blade::setPath(__DIR__ . '/resources/views');
+
+        if (isset($_GET['clear_snapshots'])) {
+            array_map(fn($file) => unlink($file), glob(storage_dir('/temp/debugbar/snapshot_*.json')));
+            header('Location: /debugbar');
+            exit;
+        }
 
         $path = $_SERVER['REQUEST_URI'];
         $file = basename($path);
