@@ -281,7 +281,7 @@ class DebugBar implements DebugBarContract
                 $decoded = json_decode($output, true);
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                     if ($this->options['show_ajax']) {
-                        $decoded['__debug_bar'] = $this->getJsonSnapshot();
+                        $decoded['__debug_bar'] = $this->serializedDebugData($this->getJsonSnapshot());
                         $output = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
                     }
                 } else {
