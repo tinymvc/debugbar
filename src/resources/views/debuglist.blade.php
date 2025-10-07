@@ -167,7 +167,8 @@
         }
 
         .view-button,
-        .refresh-button {
+        .refresh-button,
+        .clear-button {
             background: #667eea;
             color: white;
             border: none;
@@ -181,9 +182,14 @@
             display: inline-block;
         }
 
-        .refresh-button {
+        .refresh-button,
+        .clear-button {
             background: #43a047;
             padding: 0.8rem 1.6 rem;
+        }
+
+        .clear-button {
+            background-color: #d32f2f;
         }
 
         .view-button:hover {
@@ -192,6 +198,10 @@
 
         .refresh-button:hover {
             background: #388e3c;
+        }
+
+        .clear-button:hover {
+            background-color: #972121;
         }
 
         .no-snapshots {
@@ -265,7 +275,12 @@
                     <div class="snapshot-count">{{ count($snapshots) }} snapshot(s) found</div>
                 @endif
             </div>
-            <a href="/debugbar" class="refresh-button">Refresh</a>
+            <div>
+                <a href="/debugbar" class="refresh-button">Refresh</a>
+                <a href="/debugbar?clear_snapshots"
+                    onclick="return confirm('Are you sure you want to clear all snapshots?');"
+                    class="clear-button">Clear All</a>
+            </div>
         </div>
 
         @if (isset($snapshots) && count($snapshots) > 0)
