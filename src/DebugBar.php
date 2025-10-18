@@ -89,13 +89,14 @@ class DebugBar implements DebugBarContract
         self::$instance = $this;
 
         $this->options = array_merge([
+            'enabled' => true,
             'record' => false,
             'max_records' => 100,
             'show_debugbar' => true,
             'show_ajax' => true,
         ], $options);
 
-        if (php_sapi_name() === 'cli') {
+        if (php_sapi_name() === 'cli' || !$this->isDebugbarEnabled()) {
             // Disable DebugBar in CLI mode
             $this->isCollectingData = false;
             return;
@@ -125,6 +126,18 @@ class DebugBar implements DebugBarContract
         ];
 
         $this->registerEventListeners();
+    }
+
+    /**
+     * Check if DebugBar is enabled based on options
+     * 
+     * @return bool True if enabled, false otherwise
+     */
+    private function isDebugbarEnabled(): bool
+    {
+        return env('debug') && $this->options['enabled'] && (
+            $this->options['record'] || $this->options['show_debugbar'] || $this->options['show_ajax']
+        );
     }
 
     /**
@@ -432,6 +445,65 @@ class DebugBar implements DebugBarContract
                 $this->log('Language file loaded', $langFile, 'info', 'Translation');
             }
         ]);
+
+        // HTTP request logging event
+        event([
+            'app:http.request' => function ($data) {
+
+                $jsonDecoded = json_decode($data['response']['body'] ?? '', true);
+                if ($jsonDecoded !== null) {
+                    $data['response']['body'] = $jsonDecoded;
+                }
+
+                $data['duration_ms'] ??= 0; // Ensure duration_ms is set
+    
+                if (isset($data['payload']['headers'])) {
+                    $parsedHeaders = [];
+                    foreach ($data['payload']['headers'] as $name => $value) {
+                        if (is_int($name) && strpos($value, ':') !== false) {
+                            [$headerName, $headerValue] = explode(':', $value, 2);
+                            $parsedHeaders[trim($headerName)] = trim($headerValue);
+                        } elseif (is_string($name)) {
+                            $parsedHeaders[$name] = $value;
+                        }
+                    }
+
+                    $data['payload']['headers'] = $this->hideSensitiveData($parsedHeaders);
+                }
+
+                $this->log(
+                    "HTTP Request to {$data['url']} completed in {$data['duration_ms']}ms",
+                    [
+                        'url' => $data['url'],
+                        'duration_ms' => $data['duration_ms'],
+                        'payload' => $data['payload'] ?? [],
+                        'response' => $data['response'] ?? [],
+                    ],
+                    'info',
+                    'HTTP'
+                );
+            }
+        ]);
+    }
+
+    /**
+     * Hide sensitive data in the provided array
+     * 
+     * @param array $data The data array to sanitize
+     * @return array The sanitized data array
+     */
+    private function hideSensitiveData(array $data): array
+    {
+        $sensitiveKeys = ['password', 'token', 'api_key', 'authorization', 'auth_token'];
+
+        foreach ($data as $key => $value) {
+            $name = str_replace('-', '_', strtolower(trim($key)));
+            if (in_array($name, $sensitiveKeys, false)) {
+                $data[$key] = '[HIDDEN]';
+            }
+        }
+
+        return $data;
     }
 
     /**
@@ -574,7 +646,7 @@ class DebugBar implements DebugBarContract
             'relative_time' => ($currentTime - $this->appStartTime) * 1000, // in milliseconds
             'memory' => $this->currentMemoryUsage,
             'peak_memory' => $this->peakMemoryUsage,
-            'trace' => debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5)
+            'trace' => array_slice(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 10), -5) // Last 5 calls
         ];
 
         if ($group !== null) {
