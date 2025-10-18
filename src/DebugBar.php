@@ -198,6 +198,7 @@ class DebugBar implements DebugBarContract
 
         view('debuglist', compact('snapshots'))
             ->send(); // Render the list of snapshots
+        exit; // Exit after rendering the list
     }
 
     /**
@@ -449,6 +450,8 @@ class DebugBar implements DebugBarContract
         // HTTP request logging event
         event([
             'app:http.request' => function ($data) {
+                if (!$this->isCollectingData)
+                    return;
 
                 $jsonDecoded = json_decode($data['response']['body'] ?? '', true);
                 if ($jsonDecoded !== null) {
@@ -484,6 +487,25 @@ class DebugBar implements DebugBarContract
                 );
             }
         ]);
+
+        // Log Cache File Saved Event
+        event([
+            'app:cache.saved' => function ($data) {
+                if (!$this->isCollectingData)
+                    return;
+
+                $this->log(
+                    "Cache file saved: {$data['name']}",
+                    [
+                        'name' => $data['name'],
+                        'file' => $data['file'],
+                        'size' => $this->formatBytes(filesize($data['file'])),
+                    ],
+                    'info',
+                    'Cache'
+                );
+            }
+        ]);
     }
 
     /**
@@ -494,7 +516,7 @@ class DebugBar implements DebugBarContract
      */
     private function hideSensitiveData(array $data): array
     {
-        $sensitiveKeys = ['password', 'token', 'api_key', 'authorization', 'auth_token'];
+        $sensitiveKeys = ['password', 'token', 'api_key', 'authorization', 'auth_token', 'ccv', 'secret', 'auth', 'pwd'];
 
         foreach ($data as $key => $value) {
             $name = str_replace('-', '_', strtolower(trim($key)));
